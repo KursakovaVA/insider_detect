@@ -1,0 +1,102 @@
+context:
+  timezone: "Europe/Moscow"
+  work_hours:
+    start: "09:00"
+    end: "10:00"
+    weekdays: [1, 2, 3, 4, 5]
+  off_hours:
+    multiplier: 2.0
+    actions: ["login_failed", "login_success"]
+
+thresholds:
+  alert: 10.0
+  severity:
+    medium: 6.0
+    high: 12.0
+    critical: 20.0
+
+rules:
+  - id: login_failed
+    description: "Неудачная попытка входа"
+    weight: 1.0
+    match:
+      action: ["login_failed"]
+
+  - id: login_success
+    description: "Успешный вход"
+    weight: 2.0
+    match:
+      action: ["login_success"]
+
+  - id: command_exec_base
+    description: "Ввод команды"
+    weight: 1.0
+    match:
+      action: [ "command_exec" ]
+
+  - id: command_failed
+    description: "Команда не выполнилась"
+    weight: 0.5
+    match:
+      action: [ "command_failed" ]
+
+  - id: recon_commands
+    description: "Разведка системы (uname/id/whoami/ip/ps/ss)"
+    weight: 2.0
+    match:
+      action: [ "command_exec" ]
+      object_contains_any: [ "uname", "whoami", " id", "ip a", "ifconfig", "ps ", "ss ", "netstat", "cat /etc/os-release" ]
+
+  - id: download_tools
+    description: "Инструменты загрузки (curl/wget/tftp/scp)"
+    weight: 2.5
+    match:
+      action: [ "command_exec" ]
+      object_contains_any: [ "curl ", "wget ", "tftp ", "scp ", "sftp " ]
+
+  - id: reverse_shell
+    description: "Признаки reverse-shell (bash -i/dev/tcp/nc -e/socat/mkfifo)"
+    weight: 6.0
+    match:
+      action: [ "command_exec" ]
+      object_contains_any: [ "bash -i", "/dev/tcp", "nc -e", "ncat -e", "socat", "mkfifo", "python -c", "perl -e" ]
+
+  - id: creds_or_keys_access
+    description: "Доступ к учетным данным/ключам (/etc/shadow/.ssh/authorized_keys)"
+    weight: 5.0
+    match:
+      action: [ "command_exec" ]
+      object_contains_any: [ "/etc/shadow", "/etc/passwd", ".ssh", "authorized_keys", "id_rsa", "ssh-rsa" ]
+
+  - id: persistence
+    description: "Закрепление (crontab/systemctl/nohup/chmod +x)"
+    weight: 4.0
+    match:
+      action: [ "command_exec" ]
+      object_contains_any: [ "crontab", "systemctl", "service ", "nohup", "chmod +x", "rc.local" ]
+
+  - id: web_admin_probe
+    description: "Подключение к админ/логин-страницам"
+    weight: 2.0
+    match:
+      action: [ "honeypot_hit" ]
+      object_contains_any: [ "/admin", "/wp-login", "/phpmyadmin", "/login", "/cgi-bin" ]
+
+  - id: file_download_any
+    description: "Скачивание файла"
+    weight: 3.0
+    match:
+      action: [ "file_download" ]
+
+  - id: bait_file_download
+    description: "Скачивание приманочного документа (bait)"
+    weight: 7.0
+    match:
+      action: [ "file_download" ]
+      object_contains_any: [ "salary_report_2025", "salary_report", "bait", ".pdf", ".xlsx", ".docx" ]
+
+  - id: honeypot_hit_any
+    description: "Любое попадание в приманку"
+    weight: 0.3
+    match:
+      action: ["honeypot_hit"]

@@ -1,0 +1,153 @@
+sources:
+  cowrie_json:
+    type: file
+    include:
+      - /cowrie/var/log/cowrie/cowrie.json
+    read_from: beginning
+    ignore_checkpoints: true
+  ftp_bait_jsonl:
+    type: file
+    include:
+      - /ftp-bait/ftp_events.jsonl
+    read_from: beginning
+    ignore_checkpoints: true
+  http_bait_jsonl:
+    type: file
+    include:
+      - /http-bait/http_events.jsonl
+    read_from: beginning
+    ignore_checkpoints: true
+
+
+transforms:
+  parse_cowrie_json:
+    type: remap
+    inputs: [cowrie_json]
+    source: |
+      parsed = parse_json(.message) ?? null
+      if parsed != null { . = parsed} else { . = { "raw_line": .message }}
+
+  cowrie_to_eventin:
+    type: remap
+    inputs: [ parse_cowrie_json ]
+    source: |
+      orig = .
+
+      action = "noise"
+      if orig.eventid == "cowrie.login.failed" { action = "login_failed" }
+      if orig.eventid == "cowrie.login.success" { action = "login_success" }
+      if orig.eventid == "cowrie.command.input" { action = "command_exec" }
+      if orig.eventid == "cowrie.command.failed" { action = "command_failed" }
+      if orig.eventid == "cowrie.session.file_upload" { action = "file_upload" }
+      if orig.eventid == "cowrie.session.file_download" { action = "file_download" }
+      if orig.eventid == "cowrie.session.connect" { action = "session_connect" }
+      
+      obj  = get(orig, ["input"]) ?? get(orig, ["filename"]) ?? get(orig, ["url"]) ?? null
+      host = get(orig, ["sensor"]) ?? null
+
+      ts = parse_timestamp(orig.timestamp, format: "%Y-%m-%dT%H:%M:%S%.fZ") ??
+           parse_timestamp(orig.timestamp, format: "%Y-%m-%dT%H:%M:%SZ") ??
+           now()
+      
+      . = {
+        "event_id": uuid_v4(),
+        "ts": ts,
+        "source": "cowrie",
+        "trap_id": orig.sensor,
+        "src_ip": get(orig, ["src_ip"]) ?? "unknown",
+        "action": action,
+        "object": obj,
+        "user": null,        
+        "host": host,
+        "raw": orig
+      }
+
+  parse_ftp_bait:
+    type: remap
+    inputs: [ftp_bait_jsonl]
+    source: |
+      parsed = parse_json(.message) ?? null
+      if parsed != null { . = parsed } else { . = { "raw_line": .message } }
+      
+  ftp_bait_to_eventin:
+    type: remap
+    inputs: [parse_ftp_bait]
+    source: |
+      orig = .
+      ts = parse_timestamp(get(orig, ["ts"]) ?? "", format: "%+") ?? now()
+
+      . = {
+        "event_id": uuid_v4(),
+        "ts": ts,
+        "source": "ftp",
+        "trap_id": to_string!(get(orig, ["trap_id"]) ?? "ftp-bait"),
+        "src_ip": to_string!(get(orig, ["src_ip"]) ?? "unknown"),
+        "action": to_string!(get(orig, ["action"]) ?? "honeypot_hit"),
+        "object": get(orig, ["object"]) ?? null,
+        "user": get(orig, ["user"]) ?? null,
+        "host": null,
+        "raw": orig
+      }
+
+  parse_http_bait:
+    type: remap
+    inputs: [http_bait_jsonl]
+    source: |
+      parsed = parse_json(.message) ?? null
+      if parsed != null { . = parsed } else { . = { "raw_line": .message } }
+
+  http_bait_to_eventin:
+    type: remap
+    inputs: [parse_http_bait]
+    source: |
+      orig = .
+      ts = parse_timestamp(get(orig, ["ts"]) ?? "", format: "%+") ?? now()
+
+      . = {
+        "event_id": uuid_v4(),
+        "ts": ts,
+        "source": "http",
+        "trap_id": to_string!(get(orig, ["trap_id"]) ?? "http-bait"),
+        "src_ip": to_string!(get(orig, ["src_ip"]) ?? "unknown"),
+        "action": to_string!(get(orig, ["action"]) ?? "honeypot_hit"),
+        "object": get(orig, ["object"]) ?? null,
+        "user": get(orig, ["user"]) ?? null,
+        "host": null,
+        "raw": orig
+      }
+
+
+  allow_actions:
+    type: filter
+    inputs: [cowrie_to_eventin, ftp_bait_to_eventin, http_bait_to_eventin]
+    condition: |
+      .action == "login_failed" ||
+      .action == "login_success" ||
+      .action == "command_exec" ||
+      .action == "command_failed" ||
+      .action == "file_upload" ||
+      .action == "file_download" ||
+      .action == "honeypot_hit"
+
+sinks:
+  debug_console:
+    type: console
+    inputs: [allow_actions]
+    encoding:
+      codec: json
+
+  ingest_http:
+    type: http
+    inputs: [allow_actions]
+    uri: "${INGEST_URI}"
+    method: post
+    batch:
+      max_events: 1
+    encoding:
+      codec: json
+    framing:
+      method: bytes
+    request:
+      headers:
+        Content-Type: application/json
+        X-API-Key: "${INGEST_API_KEY}"

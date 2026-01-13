@@ -1,0 +1,30 @@
+# python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# venv
+.venv/
+venv/
+
+# ide
+.idea/
+.vscode/
+
+# local/env
+.env
+.env.*
+*.local
+
+# cache/build
+.cache/
+dist/
+build/
+*.egg-info/
+
+# logs
+*.log
+
+# alembic
+*.db

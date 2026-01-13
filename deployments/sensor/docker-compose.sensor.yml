@@ -1,0 +1,83 @@
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: insider-sensor-cowrie
+    restart: unless-stopped
+    environment:
+      - COWRIE_TELNET_ENABLED=yes
+    ports:
+      - "2222:2222"
+      - "2223:2223"
+    volumes:
+      - cowrie-var:/cowrie/cowrie-git/var
+    networks: [insider-net]
+
+  ftp:
+    image: python:3.12-slim
+    container_name: insider-sensor-ftp
+    restart: unless-stopped
+    working_dir: /app
+    command: ["sh", "-lc", "pip install -q pyftpdlib && python ftp_server.py"]
+    environment:
+      FTP_PORT: "2121"
+      TRAP_ID: "ftp-bait-1"
+      FTP_USER: "ftp"
+      FTP_PASS: "ftp"
+      BAIT_DIR: "/bait"
+      LOG_PATH: "/logs/ftp_events.jsonl"
+      PASV_MIN: "30000"
+      PASV_MAX: "30010"
+    volumes:
+      - ../../sensor/ftp_server.py:/app/ftp_server.py:ro
+      - ../../sensor/bait:/bait:ro
+      - ftp-bait-logs:/logs
+    ports:
+      - "2121:2121"
+      - "30000-30010:30000-30010"
+    networks: [insider-net]
+
+  http:
+    image: python:3.12-slim
+    container_name: insider-sensor-http
+    restart: unless-stopped
+    working_dir: /app
+    command: [ "sh", "-lc", "pip install -q fastapi uvicorn python-multipart && uvicorn http_service:app --host 0.0.0.0 --port 8000" ]
+    environment:
+      TRAP_ID: "http-bait-1"
+      LOG_PATH: "/logs/http_events.jsonl"
+      BAIT_DIR: "/bait"
+    volumes:
+      - ../../sensor/http_service.py:/app/http_service.py:ro
+      - ../../sensor/bait:/bait:ro
+      - http-bait-logs:/logs
+    ports:
+      - "8080:8000"
+    networks: [ insider-net ]
+
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: insider-sensor-vector
+    restart: unless-stopped
+    depends_on:
+      - cowrie
+      - ftp
+      - http
+    env_file:
+      - .env.sensor
+    volumes:
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - cowrie-var:/cowrie/var:ro
+      - ftp-bait-logs:/ftp-bait:ro
+      - http-bait-logs:/http-bait:ro
+    command: ["-c", "/etc/vector/vector.yaml"]
+    networks: [insider-net]
+
+volumes:
+  cowrie-var:
+  ftp-bait-logs:
+  http-bait-logs:
+
+networks:
+  insider-net:
+    external: true
+    name: insider-net
