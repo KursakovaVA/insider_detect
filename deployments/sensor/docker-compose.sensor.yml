@@ -79,5 +79,4 @@ volumes:
 
 networks:
   insider-net:
-    external: true
     name: insider-net

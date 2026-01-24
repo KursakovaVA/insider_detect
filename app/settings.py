@@ -1,4 +1,3 @@
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,7 +16,6 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: str | None = None
 
     model_config = SettingsConfigDict(
-        #env_file=".env",  # только для локального запуска (не обязателен)
         env_file_encoding="utf-8",
         extra="ignore",
     )

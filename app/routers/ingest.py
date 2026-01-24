@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_ruleset, require_ingest_key
 from app.rules_engine import RuleSet
 from app.schemas.event import EventIn
-from app.services.ingest_service import ingest_event
+from app.services.ingest import ingest_event
 
 router = APIRouter()
 

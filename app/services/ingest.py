@@ -6,7 +6,9 @@ from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import Session
 
 from app.integrations.telegram import telegram_send
-from app.models.event import Alert, Event, Profile
+from app.models.event import Event
+from app.models.alert import Alert
+from app.models.profile import Profile
 from app.rules_engine import RuleSet, evaluate_rules, severity_from_risk
 from app.schemas.event import EventIn
 from app.utils.formatting import format_recent_events
