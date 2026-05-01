@@ -19,7 +19,7 @@ class EventOut(BaseModel):
     event_id: UUID = Field(validation_alias="id")
     ts: datetime
     source: str
-    rap_id: str | None = None
+    trap_id: str | None = None
     src_ip: str
     action: str
     object: Optional[str] = None

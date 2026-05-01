@@ -56,10 +56,16 @@ rules:
 
   - id: reverse_shell
     description: "Признаки reverse-shell (bash -i/dev/tcp/nc -e/socat/mkfifo)"
-    weight: 6.0
+    # Калибровка 2026-04-27: вес поднят 6.0 -> 9.0. Обоснование: в паре
+    # с command_exec_base (1.0) единичная reverse-shell команда теперь
+    # достигает alert_threshold=10.0, как и bait_file_download (7.0)
+    # в паре с file_download_any (3.0). Содержательно reverse-shell —
+    # активная фаза kill chain (T1059/T1071) и должен порождать алерт
+    # сразу, без накопления контекста.
+    weight: 9.0
     match:
       action: [ "command_exec" ]
-      object_contains_any: [ "bash -i", "/dev/tcp", "nc -e", "ncat -e", "socat", "mkfifo", "python -c", "perl -e" ]
+      object_contains_any: [ "bash -i", "/dev/tcp", "nc -e", "ncat -e", "socat", "mkfifo", "python -c", "python3 -c", "perl -e" ]
 
   - id: creds_or_keys_access
     description: "Доступ к учетным данным/ключам (/etc/shadow/.ssh/authorized_keys)"
@@ -93,7 +99,11 @@ rules:
     weight: 7.0
     match:
       action: [ "file_download" ]
-      object_contains_any: [ "salary_report_2025", "salary_report", "bait", ".pdf", ".xlsx", ".docx" ]
+      object_contains_any:
+        - "/bait/"
+        - "salary_report_2025"
+        - "vpn_passwords"
+        - "employees.csv"
 
   - id: honeypot_hit_any
     description: "Любое попадание в приманку"

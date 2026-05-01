@@ -17,6 +17,46 @@ ALERT_COOLDOWN_MINUTES = 10
 RECENT_EVENTS_LIMIT = 10
 TAU_SECONDS = 3600.0
 
+
+def decay_risk(prev: float, dt_seconds: float, tau: float = TAU_SECONDS) -> float:
+    """Экспоненциальное затухание накопленного риск-скора.
+
+    Реализует ``R_{n+1} = R_n * exp(-Δt / τ) + w`` без слагаемого ``w``
+    (новый вес добавляется снаружи). Отрицательный ``Δt`` (out-of-order
+    события) трактуется как ноль — это защита от рассинхронизации
+    часов между сенсорами и core.
+    """
+    if dt_seconds < 0:
+        dt_seconds = 0.0
+    return float(prev) * math.exp(-float(dt_seconds) / float(tau))
+
+
+def make_dedup_key(trap_id: str, src_ip: str, severity: str) -> str:
+    """Ключ дедупликации для алертов.
+
+    Алерты с одинаковыми ``(trap_id, src_ip, severity)`` в течение
+    cooldown-окна агрегируются в один. Разные severity порождают
+    разные алерты сознательно: эскалация (medium → high) должна
+    быть видна как отдельное событие, а не как «обновление счётчика».
+    """
+    return f"{trap_id}:{src_ip}:{severity}"
+
+
+def is_within_cooldown(
+    now: datetime, last_updated: datetime, minutes: int
+) -> bool:
+    """Лежит ли ``last_updated`` в окне ``[now - minutes, now]``.
+
+    Используется для подавления повторных алертов: если уже есть
+    open-алерт с тем же dedup_key, обновлённый не позднее
+    ``minutes`` минут назад, новый создавать не нужно.
+    """
+    if minutes <= 0:
+        return False
+    delta = (now - last_updated).total_seconds()
+    return 0 <= delta <= minutes * 60
+
+
 def ingest_event(
     event: EventIn,
     background_tasks: BackgroundTasks,
@@ -53,10 +93,8 @@ def ingest_event(
 
     if profile.last_seen is not None:
         dt = (event.ts - profile.last_seen).total_seconds()
-        if dt < 0:
-            dt = 0
-        decay = math.exp(-dt / TAU_SECONDS)
-        profile.risk_score = float(profile.risk_score) * decay + float(delta)
+        decayed = decay_risk(profile.risk_score, dt, tau=TAU_SECONDS)
+        profile.risk_score = decayed + float(delta)
     else:
         profile.risk_score = float(profile.risk_score) + float(delta)
 
@@ -78,6 +116,8 @@ def ingest_event(
             "object": event.object,
         },
     }
+
+    session.flush()
 
     recent_stmt = (
         select(Event)
@@ -105,7 +145,7 @@ def ingest_event(
 
     if risk_after >= float(ruleset.alert_threshold):
         sev = severity_from_risk(risk_after, ruleset)
-        dedup_key = f"{trap_id}:{src_ip}:{sev}"
+        dedup_key = make_dedup_key(trap_id, src_ip, sev)
         cooldown_from = event.ts - timedelta(minutes=ALERT_COOLDOWN_MINUTES)
 
         stmt = (

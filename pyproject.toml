@@ -16,7 +16,9 @@ dependencies = [
     "pydantic-settings (>=2.12.0,<3.0.0)",
     "alembic (>=1.17.2,<2.0.0)",
     "pyyaml (>=6.0.3,<7.0.0)",
-    "httpx (>=0.28.1,<0.29.0)"
+    "httpx (>=0.28.1,<0.29.0)",
+    "python-multipart (>=0.0.20,<0.1.0)",
+    "pyftpdlib (>=2.0.1,<3.0.0)"
 ]
 
 
@@ -27,5 +29,49 @@ build-backend = "poetry.core.masonry.api"
 [dependency-groups]
 dev = [
     "pytest (>=9.0.2,<10.0.0)",
-    "ruff (>=0.14.10,<0.15.0)"
+    "ruff (>=0.14.10,<0.15.0)",
+    "coverage (>=7.13.5,<8.0.0)"
+]
+loadtest = [
+    "matplotlib (>=3.10.0,<4.0.0)"
+]
+
+[tool.coverage.run]
+source = ["app", "sensors"]
+branch = true
+omit = [
+    "app/main.py",
+    "app/db.py",
+    "app/core/lifespan.py",
+    "app/api/router.py",
+    "app/api/deps.py",
+    "app/routers/*",
+    "*/migrations/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 80
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "-q",
+]
+markers = [
+    "integration: tests requiring Docker + Postgres (testcontainers)",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:pydantic.*",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20",
 ]
