@@ -1,0 +1,7 @@
+---
+sensor_suffix: "b"
+sensor_user_ip: "192.168.20.2"
+sensor_ingest_ip: "172.16.0.22"
+
+ftp_trap_id: "ftp-bait-b"
+http_trap_id: "http-bait-b"

@@ -1,0 +1,32 @@
+---
+- name: Create tests directory
+  ansible.builtin.file:
+    path: "{{ client_tests_dir }}"
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: "0755"
+
+- name: Render HTTP test script
+  ansible.builtin.template:
+    src: test_http.sh.j2
+    dest: "{{ client_tests_dir }}/test_http.sh"
+    owner: vagrant
+    group: vagrant
+    mode: "0755"
+
+- name: Render FTP test script
+  ansible.builtin.template:
+    src: test_ftp.sh.j2
+    dest: "{{ client_tests_dir }}/test_ftp.sh"
+    owner: vagrant
+    group: vagrant
+    mode: "0755"
+
+- name: Render SSH test script
+  ansible.builtin.template:
+    src: test_ssh.sh.j2
+    dest: "{{ client_tests_dir }}/test_ssh.sh"
+    owner: vagrant
+    group: vagrant
+    mode: "0755"

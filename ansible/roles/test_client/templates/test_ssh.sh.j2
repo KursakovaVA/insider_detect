@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -x
+
+ssh \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -p 2222 \
+  test@{{ target_sensor_ip }}

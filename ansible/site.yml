@@ -1,0 +1,32 @@
+---
+- name: Configure base packages on all nodes
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Install Docker on server nodes
+  hosts: docker_hosts
+  become: true
+  roles:
+    - docker
+
+- name: Deploy Insider Detect Core
+  hosts: core
+  become: true
+  roles:
+    - insider_repo
+    - insider_core
+
+- name: Deploy Insider Detect Sensors
+  hosts: sensors
+  become: true
+  roles:
+    - insider_repo
+    - insider_sensor
+
+- name: Prepare test clients
+  hosts: clients
+  become: true
+  roles:
+    - test_client

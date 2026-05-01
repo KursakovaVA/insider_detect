@@ -1,0 +1,26 @@
+---
+- name: Render Sensor environment file
+  ansible.builtin.template:
+    src: env.sensor.j2
+    dest: "{{ repo_dir }}/deployments/sensor/.env.sensor"
+    owner: vagrant
+    group: vagrant
+    mode: "0644"
+
+- name: Render lab Sensor docker compose
+  ansible.builtin.template:
+    src: docker-compose.lab.sensor.yml.j2
+    dest: "{{ repo_dir }}/deployments/sensor/docker-compose.lab.sensor.yml"
+    owner: vagrant
+    group: vagrant
+    mode: "0644"
+
+- name: Start Sensor services
+  ansible.builtin.command:
+    cmd: docker compose -f docker-compose.lab.sensor.yml up -d
+    chdir: "{{ repo_dir }}/deployments/sensor"
+  register: sensor_compose_result
+  changed_when: >
+    'Started' in sensor_compose_result.stdout or
+    'Created' in sensor_compose_result.stdout or
+    'Recreated' in sensor_compose_result.stdout

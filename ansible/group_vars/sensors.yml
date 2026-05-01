@@ -1,0 +1,10 @@
+---
+sensor_ssh_port: 2222
+sensor_telnet_port: 2223
+sensor_ftp_port: 2121
+sensor_http_port: 8080
+sensor_ftp_pasv_min: 30000
+sensor_ftp_pasv_max: 30010
+
+ftp_user: "ftp"
+ftp_pass: "ftp"

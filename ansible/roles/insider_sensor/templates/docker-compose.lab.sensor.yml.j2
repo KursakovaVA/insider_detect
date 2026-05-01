@@ -1,0 +1,89 @@
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: insider-sensor-cowrie
+    restart: unless-stopped
+    environment:
+      - COWRIE_TELNET_ENABLED=yes
+    ports:
+      - "{{ sensor_user_ip }}:{{ sensor_ssh_port }}:2222"
+      - "{{ sensor_user_ip }}:{{ sensor_telnet_port }}:2223"
+    volumes:
+      - cowrie-var:/cowrie/cowrie-git/var
+    networks:
+      - insider-sensor-net
+
+  ftp:
+    image: python:3.12-slim
+    container_name: insider-sensor-ftp
+    restart: unless-stopped
+    working_dir: /app
+    command: ["sh", "-lc", "pip install -q pyftpdlib && python ftp_server.py"]
+    environment:
+      FTP_PORT: "{{ sensor_ftp_port }}"
+      TRAP_ID: "{{ ftp_trap_id }}"
+      FTP_USER: "{{ ftp_user }}"
+      FTP_PASS: "{{ ftp_pass }}"
+      BAIT_DIR: "/bait"
+      LOG_PATH: "/logs/ftp_events.jsonl"
+      PASV_MIN: "{{ sensor_ftp_pasv_min }}"
+      PASV_MAX: "{{ sensor_ftp_pasv_max }}"
+    volumes:
+      - ../../sensors/ftp_server.py:/app/ftp_server.py:ro
+      - ../../sensors/bait:/bait:ro
+      - ftp-bait-logs:/logs
+    ports:
+      - "{{ sensor_user_ip }}:{{ sensor_ftp_port }}:{{ sensor_ftp_port }}"
+      - "{{ sensor_user_ip }}:{{ sensor_ftp_pasv_min }}-{{ sensor_ftp_pasv_max }}:{{ sensor_ftp_pasv_min }}-{{ sensor_ftp_pasv_max }}"
+    networks:
+      - insider-sensor-net
+
+  http:
+    image: python:3.12-slim
+    container_name: insider-sensor-http
+    restart: unless-stopped
+    working_dir: /app
+    command:
+      - "sh"
+      - "-lc"
+      - "pip install -q fastapi uvicorn python-multipart && uvicorn http_service:app --host 0.0.0.0 --port 8000"
+    environment:
+      TRAP_ID: "{{ http_trap_id }}"
+      LOG_PATH: "/logs/http_events.jsonl"
+      BAIT_DIR: "/bait"
+    volumes:
+      - ../../sensors/http_service.py:/app/http_service.py:ro
+      - ../../sensors/bait:/bait:ro
+      - http-bait-logs:/logs
+    ports:
+      - "{{ sensor_user_ip }}:{{ sensor_http_port }}:8000"
+    networks:
+      - insider-sensor-net
+
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: insider-sensor-vector
+    restart: unless-stopped
+    depends_on:
+      - cowrie
+      - ftp
+      - http
+    env_file:
+      - .env.sensor
+    volumes:
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - cowrie-var:/cowrie/var:ro
+      - ftp-bait-logs:/ftp-bait:ro
+      - http-bait-logs:/http-bait:ro
+    command: ["-c", "/etc/vector/vector.yaml"]
+    networks:
+      - insider-sensor-net
+
+volumes:
+  cowrie-var:
+  ftp-bait-logs:
+  http-bait-logs:
+
+networks:
+  insider-sensor-net:
+    name: insider-sensor-net

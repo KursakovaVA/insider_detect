@@ -1,0 +1,6 @@
+---
+postgres_user: "app"
+postgres_password: "app"
+postgres_db: "insider"
+
+core_api_bind_ip: "{{ core_ip }}"

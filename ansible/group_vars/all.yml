@@ -1,0 +1,15 @@
+---
+repo_url: "https://github.com/KursakovaVA/insider_detect.git"
+repo_version: "main"
+repo_dir: "/opt/insider_detect"
+
+core_ip: "172.16.0.10"
+core_api_host_port: 8003
+core_api_container_port: 8000
+
+ingest_api_key: "super-test-key"
+ingest_uri: "http://{{ core_ip }}:{{ core_api_host_port }}/api/v1/ingest"
+
+lab_timezone: "Europe/Moscow"
+workday_start: "09:00"
+workday_end: "18:00"

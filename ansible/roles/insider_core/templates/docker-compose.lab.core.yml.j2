@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: insider-core-db
+    restart: unless-stopped
+    env_file:
+      - .env.core
+    volumes:
+      - insider_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks:
+      - insider-core-net
+
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: insider-core-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.core
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      RULES_PATH: /app/rules/rules.yaml
+    ports:
+      - "{{ core_api_bind_ip }}:{{ core_api_host_port }}:{{ core_api_container_port }}"
+    command: >
+      sh -lc "poetry run alembic upgrade head &&
+              poetry run uvicorn app.main:app --host 0.0.0.0 --reload --port {{ core_api_container_port }}"
+    networks:
+      - insider-core-net
+
+volumes:
+  insider_pg:
+
+networks:
+  insider-core-net:
+    name: insider-core-net

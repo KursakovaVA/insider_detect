@@ -1,0 +1,33 @@
+---
+- name: Render Core environment file
+  ansible.builtin.template:
+    src: env.core.j2
+    dest: "{{ repo_dir }}/deployments/core/.env.core"
+    owner: vagrant
+    group: vagrant
+    mode: "0644"
+
+- name: Render lab Core docker compose
+  ansible.builtin.template:
+    src: docker-compose.lab.core.yml.j2
+    dest: "{{ repo_dir }}/deployments/core/docker-compose.lab.core.yml"
+    owner: vagrant
+    group: vagrant
+    mode: "0644"
+
+- name: Start Core services
+  ansible.builtin.command:
+    cmd: docker compose -f docker-compose.lab.core.yml up -d --build
+    chdir: "{{ repo_dir }}/deployments/core"
+  register: core_compose_result
+  changed_when: >
+    'Started' in core_compose_result.stdout or
+    'Created' in core_compose_result.stdout or
+    'Recreated' in core_compose_result.stdout or
+    'Built' in core_compose_result.stdout
+
+- name: Wait for Core API port
+  ansible.builtin.wait_for:
+    host: "{{ core_api_bind_ip }}"
+    port: "{{ core_api_host_port }}"
+    timeout: 120

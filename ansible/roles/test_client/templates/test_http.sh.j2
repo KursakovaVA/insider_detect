@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+set -x
+
+curl -s "http://{{ target_sensor_ip }}:8080/"
+curl -s "http://{{ target_sensor_ip }}:8080/admin"
+curl -s "http://{{ target_sensor_ip }}:8080/login"

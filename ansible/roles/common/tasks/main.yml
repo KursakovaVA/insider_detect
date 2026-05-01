@@ -1,0 +1,22 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - git
+      - curl
+      - wget
+      - net-tools
+      - iputils-ping
+      - openssh-client
+      - lftp
+      - python3-pip
+      - ca-certificates
+      - gnupg
+      - htop
+      - jq
+    state: present
